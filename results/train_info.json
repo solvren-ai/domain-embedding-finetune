@@ -1,0 +1,7 @@
+{
+  "train_pairs": 813,
+  "epochs": 4,
+  "batch_size": 8,
+  "lr": 2e-05,
+  "train_minutes": 7.6
+}

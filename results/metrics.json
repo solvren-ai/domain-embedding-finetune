@@ -1,0 +1,23 @@
+{
+  "val_queries": 99,
+  "val_corpus": 33,
+  "query_prompt": "Represent this sentence for searching relevant passages: ",
+  "base": {
+    "hit_rate@1": 0.7576,
+    "hit_rate@3": 0.9192,
+    "hit_rate@5": 0.9495,
+    "hit_rate@10": 0.9899,
+    "ndcg@10": 0.8796,
+    "mrr@10": 0.8438,
+    "map@10": 0.8438
+  },
+  "finetuned": {
+    "hit_rate@1": 0.8182,
+    "hit_rate@3": 0.9697,
+    "hit_rate@5": 0.9798,
+    "hit_rate@10": 1.0,
+    "ndcg@10": 0.9181,
+    "mrr@10": 0.8908,
+    "map@10": 0.8908
+  }
+}
