@@ -55,7 +55,7 @@ A no-AWS port of the notebook lives in [`local/run_local.py`](local/run_local.py
 | Uber / Lyft 10-K PDFs | HIPAA regulation text from eCFR (snapshot 2026-10-06). Train: 45 CFR Part 160 + Part 164 Subpart E (Privacy Rule). Val: Part 164 Subparts C (Security Rule) + D (Breach Notification). |
 | Bedrock `meta.llama3-70b-instruct-v1:0` | `mlx-community/Qwen3-4B-Instruct-2507-4bit` via `mlx-lm` (Apache-2.0) |
 | FlagEmbedding + torchrun on CUDA | sentence-transformers `MultipleNegativesRankingLoss` on MPS |
-| Hit rate + `InformationRetrievalEvaluator` | `InformationRetrievalEvaluator` (accuracy@k = hit rate@k, NDCG@10, MRR@10) |
+| Hit rate + `InformationRetrievalEvaluator`; Titan reference | `InformationRetrievalEvaluator` (accuracy@k = hit rate@k, NDCG@10, MRR@10) over the full 304-chunk corpus and the 33 val chunks, at seq len 256 and 512; references: `bge-large-en-v1.5`, `snowflake-arctic-embed-m-v1.5`; general-domain check on BEIR SciFact |
 
 Requirements: an Apple Silicon Mac with 16 GB+ RAM, [uv](https://docs.astral.sh/uv/), and about 5 GB of disk for the models. Dependencies are declared inline in the script (PEP 723) and pinned in `local/run_local.py.lock`.
 
@@ -66,14 +66,15 @@ uv run local/run_local.py selftest   # offline parser/chunker checks
 uv run local/run_local.py corpus     # download eCFR XML to data/raw/, write data/corpus_{train,val}.jsonl
 uv run local/run_local.py generate   # write data/pairs_{train,val}.jsonl (~15 min, resumable)
 uv run local/run_local.py train      # fine-tune on MPS, save to models/bge-base-en-v1.5-hipaa/
-uv run local/run_local.py eval       # base vs fine-tuned, write results/metrics.json
-# or all four steps in one go: uv run local/run_local.py all
+uv run local/run_local.py eval       # base vs fine-tuned vs references, write results/metrics.json
+uv run local/run_local.py beir       # BEIR SciFact regression check, write results/beir_scifact.json
+# or all five steps in one go: uv run local/run_local.py all
 ```
 
 Outputs:
 - `data/pairs_*.jsonl`: the synthetic dataset, one `{"query", "pos", "chunk_id", "split"}` per line (FlagEmbedding-compatible).
-- `results/metrics.json`, `results/train_info.json`: the evaluation metrics and training run details.
-- `models/bge-base-en-v1.5-hipaa/`: the fine-tuned weights (git-ignored). See [`MODEL_CARD.md`](MODEL_CARD.md).
+- `results/metrics.json`, `results/beir_scifact.json`, `results/train_info.json`: the evaluation metrics and training run details. Headline: NDCG@10 over the full corpus goes from 0.834 (base) to 0.907 (fine-tuned); SciFact is unchanged (0.740 to 0.743). Full tables are in [`MODEL_CARD.md`](MODEL_CARD.md).
+- `models/bge-base-en-v1.5-hipaa/`: the fine-tuned weights (git-ignored). See [`MODEL_CARD.md`](MODEL_CARD.md) and [`DATASET_CARD.md`](DATASET_CARD.md). Published privately as [SolvrenAI/bge-base-en-v1.5-hipaa](https://huggingface.co/SolvrenAI/bge-base-en-v1.5-hipaa) and [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/SolvrenAI/hipaa-retrieval-pairs).
 
 Downloaded regulation XML goes in `data/raw/` (git-ignored). It is only parsed, never executed. The notebook's hard-negative mining, LM-Cocktail merging and SageMaker deployment are not ported.
 

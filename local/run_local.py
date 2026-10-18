@@ -15,7 +15,8 @@ Steps (run in order, or `all`):
   corpus    download HIPAA regulation text from eCFR, chunk it (train/val = different documents)
   generate  synthetic question->chunk pairs with a local MLX LLM (replaces Bedrock Llama 3)
   train     fine-tune BAAI/bge-base-en-v1.5 on MPS with MultipleNegativesRankingLoss
-  eval      base vs fine-tuned on the val split: hit rate@k, NDCG@10, MRR@10
+  eval      base vs fine-tuned vs references on HIPAA val queries (full + val-only corpus, seq 256/512)
+  beir      general-domain regression check on BEIR SciFact (NDCG@10)
   selftest  offline checks for the parsing/chunking logic
 
 Run from the repo root:  uv run local/run_local.py all
@@ -210,27 +211,74 @@ def step_train(epochs=4, batch_size=8, lr=2e-5):  # small batch: 16 GB unified m
     print(meta)
 
 
-def step_eval():
-    from sentence_transformers import SentenceTransformer
+# Off-the-shelf references (no fine-tuning). Both use the same query instruction as BGE v1.5.
+REFERENCE_MODELS = {
+    "bge-large-en-v1.5": "BAAI/bge-large-en-v1.5",  # MIT
+    "snowflake-arctic-embed-m-v1.5": "Snowflake/snowflake-arctic-embed-m-v1.5",  # Apache-2.0
+}
+METRIC_KEYS = {"accuracy@1": "hit_rate@1", "accuracy@3": "hit_rate@3", "accuracy@5": "hit_rate@5",
+               "accuracy@10": "hit_rate@10", "ndcg@10": "ndcg@10", "mrr@10": "mrr@10", "map@10": "map@10"}
+ENCODE_BATCH = 16  # small: unified memory is shared with other MLX jobs
+
+
+def ir_eval(model, name, queries, corpus, relevant):
     from sentence_transformers.evaluation import InformationRetrievalEvaluator
 
-    corpus = {c["id"]: c["text"] for c in read_jsonl(DATA / "corpus_val.jsonl")}
+    ev = InformationRetrievalEvaluator(
+        queries, corpus, relevant, name=name, query_prompt=QUERY_PROMPT, batch_size=ENCODE_BATCH,
+        accuracy_at_k=[1, 3, 5, 10], precision_recall_at_k=[1, 5, 10], mrr_at_k=[10], ndcg_at_k=[10], map_at_k=[10],
+    )
+    m = ev(model)
+    return {v: round(m[f"{name}_cosine_{k}"], 4) for k, v in METRIC_KEYS.items()}
+
+
+def step_eval():
+    """HIPAA val queries vs (a) the full 304-chunk corpus (train chunks as distractors) and (b) the 33 val chunks,
+    for every model at max_seq_length 256 and 512."""
+    from sentence_transformers import SentenceTransformer
+
+    train_c, val_c = read_jsonl(DATA / "corpus_train.jsonl"), read_jsonl(DATA / "corpus_val.jsonl")
+    assert not {c["id"] for c in train_c} & {c["id"] for c in val_c}, "train/val chunk ids overlap"
     pairs = read_jsonl(DATA / "pairs_val.jsonl")
     queries = {f"q{i}": p["query"] for i, p in enumerate(pairs)}
     relevant = {f"q{i}": {p["chunk_id"]} for i, p in enumerate(pairs)}
-    ev = InformationRetrievalEvaluator(
-        queries, corpus, relevant, name="hipaa-val", query_prompt=QUERY_PROMPT,
-        accuracy_at_k=[1, 3, 5, 10], precision_recall_at_k=[1, 5, 10], mrr_at_k=[10], ndcg_at_k=[10], map_at_k=[10],
-    )
-    keys = {"accuracy@1": "hit_rate@1", "accuracy@3": "hit_rate@3", "accuracy@5": "hit_rate@5",
-            "accuracy@10": "hit_rate@10", "ndcg@10": "ndcg@10", "mrr@10": "mrr@10", "map@10": "map@10"}
-    out = {"val_queries": len(queries), "val_corpus": len(corpus), "query_prompt": QUERY_PROMPT}
-    for name, path in (("base", BASE_MODEL), ("finetuned", str(MODEL_OUT))):
-        m = ev(SentenceTransformer(path, device="mps"))
-        out[name] = {v: round(m[f"hipaa-val_cosine_{k}"], 4) for k, v in keys.items()}
-        print(name, out[name])
+    corpora = {"full_corpus": {c["id"]: c["text"] for c in train_c + val_c}, "val_only": {c["id"]: c["text"] for c in val_c}}
+    models = {"bge-base-en-v1.5": BASE_MODEL, "bge-base-en-v1.5-hipaa": str(MODEL_OUT), **REFERENCE_MODELS}
+    out = {"val_queries": len(queries), "corpus_size": {k: len(v) for k, v in corpora.items()}, "query_prompt": QUERY_PROMPT,
+           "results": {k: {"256": {}, "512": {}} for k in corpora}}
+    for mname, path in models.items():
+        model = SentenceTransformer(path, device="mps")
+        for seq in (256, 512):
+            model.max_seq_length = seq
+            for cname, corpus in corpora.items():
+                out["results"][cname][str(seq)][mname] = r = ir_eval(model, f"{cname}-{seq}", queries, corpus, relevant)
+                print(cname, seq, mname, r, flush=True)
+        del model
     RESULTS.mkdir(exist_ok=True)
     (RESULTS / "metrics.json").write_text(json.dumps(out, indent=2))
+
+
+def step_beir():
+    """General-domain regression check: BEIR SciFact test split (300 queries, 5,183 abstracts), NDCG@10."""
+    from datasets import load_dataset
+    from sentence_transformers import SentenceTransformer
+
+    corpus = {r["_id"]: (r["title"] + " " + r["text"]).strip() for r in load_dataset("mteb/scifact", "corpus", split="corpus")}
+    qrels = {}
+    for r in load_dataset("mteb/scifact", "default", split="test"):
+        if r["score"] > 0:
+            qrels.setdefault(str(r["query-id"]), set()).add(str(r["corpus-id"]))
+    queries = {r["_id"]: r["text"] for r in load_dataset("mteb/scifact", "queries", split="queries") if r["_id"] in qrels}
+    out = {"task": "BEIR SciFact (mteb/scifact, test)", "queries": len(queries), "corpus": len(corpus), "max_seq_length": 512}
+    for mname, path in (("bge-base-en-v1.5", BASE_MODEL), ("bge-base-en-v1.5-hipaa", str(MODEL_OUT))):
+        model = SentenceTransformer(path, device="mps")
+        model.max_seq_length = 512
+        out[mname] = ir_eval(model, "scifact", queries, corpus, qrels)
+        print(mname, out[mname], flush=True)
+        del model
+    out["ndcg@10_delta"] = round(out["bge-base-en-v1.5-hipaa"]["ndcg@10"] - out["bge-base-en-v1.5"]["ndcg@10"], 4)
+    RESULTS.mkdir(exist_ok=True)
+    (RESULTS / "beir_scifact.json").write_text(json.dumps(out, indent=2))
 
 
 def step_selftest():
@@ -243,9 +291,9 @@ def step_selftest():
     print("selftest ok")
 
 
-STEPS = {"corpus": step_corpus, "generate": step_generate, "train": step_train, "eval": step_eval, "selftest": step_selftest}
+STEPS = {"corpus": step_corpus, "generate": step_generate, "train": step_train, "eval": step_eval, "beir": step_beir, "selftest": step_selftest}
 
 if __name__ == "__main__":
     names = sys.argv[1:] or ["all"]
-    for n in (["corpus", "generate", "train", "eval"] if names == ["all"] else names):
+    for n in (["corpus", "generate", "train", "eval", "beir"] if names == ["all"] else names):
         STEPS[n]()

@@ -1,23 +1,166 @@
 {
   "val_queries": 99,
-  "val_corpus": 33,
-  "query_prompt": "Represent this sentence for searching relevant passages: ",
-  "base": {
-    "hit_rate@1": 0.7576,
-    "hit_rate@3": 0.9192,
-    "hit_rate@5": 0.9495,
-    "hit_rate@10": 0.9899,
-    "ndcg@10": 0.8796,
-    "mrr@10": 0.8438,
-    "map@10": 0.8438
+  "corpus_size": {
+    "full_corpus": 304,
+    "val_only": 33
   },
-  "finetuned": {
-    "hit_rate@1": 0.8182,
-    "hit_rate@3": 0.9697,
-    "hit_rate@5": 0.9798,
-    "hit_rate@10": 1.0,
-    "ndcg@10": 0.9181,
-    "mrr@10": 0.8908,
-    "map@10": 0.8908
+  "query_prompt": "Represent this sentence for searching relevant passages: ",
+  "results": {
+    "full_corpus": {
+      "256": {
+        "bge-base-en-v1.5": {
+          "hit_rate@1": 0.6869,
+          "hit_rate@3": 0.8687,
+          "hit_rate@5": 0.899,
+          "hit_rate@10": 0.9495,
+          "ndcg@10": 0.8282,
+          "mrr@10": 0.7886,
+          "map@10": 0.7886
+        },
+        "bge-base-en-v1.5-hipaa": {
+          "hit_rate@1": 0.7778,
+          "hit_rate@3": 0.9293,
+          "hit_rate@5": 0.9697,
+          "hit_rate@10": 1.0,
+          "ndcg@10": 0.8965,
+          "mrr@10": 0.8625,
+          "map@10": 0.8625
+        },
+        "bge-large-en-v1.5": {
+          "hit_rate@1": 0.7374,
+          "hit_rate@3": 0.8889,
+          "hit_rate@5": 0.9293,
+          "hit_rate@10": 0.9798,
+          "ndcg@10": 0.8581,
+          "mrr@10": 0.8191,
+          "map@10": 0.8191
+        },
+        "snowflake-arctic-embed-m-v1.5": {
+          "hit_rate@1": 0.7576,
+          "hit_rate@3": 0.8788,
+          "hit_rate@5": 0.9192,
+          "hit_rate@10": 0.9495,
+          "ndcg@10": 0.8551,
+          "mrr@10": 0.8246,
+          "map@10": 0.8246
+        }
+      },
+      "512": {
+        "bge-base-en-v1.5": {
+          "hit_rate@1": 0.697,
+          "hit_rate@3": 0.8788,
+          "hit_rate@5": 0.9192,
+          "hit_rate@10": 0.9495,
+          "ndcg@10": 0.8337,
+          "mrr@10": 0.7956,
+          "map@10": 0.7956
+        },
+        "bge-base-en-v1.5-hipaa": {
+          "hit_rate@1": 0.7879,
+          "hit_rate@3": 0.9596,
+          "hit_rate@5": 0.9798,
+          "hit_rate@10": 1.0,
+          "ndcg@10": 0.9071,
+          "mrr@10": 0.8759,
+          "map@10": 0.8759
+        },
+        "bge-large-en-v1.5": {
+          "hit_rate@1": 0.7475,
+          "hit_rate@3": 0.899,
+          "hit_rate@5": 0.9495,
+          "hit_rate@10": 0.9697,
+          "ndcg@10": 0.8638,
+          "mrr@10": 0.8291,
+          "map@10": 0.8291
+        },
+        "snowflake-arctic-embed-m-v1.5": {
+          "hit_rate@1": 0.7778,
+          "hit_rate@3": 0.899,
+          "hit_rate@5": 0.9192,
+          "hit_rate@10": 0.9394,
+          "ndcg@10": 0.8649,
+          "mrr@10": 0.8401,
+          "map@10": 0.8401
+        }
+      }
+    },
+    "val_only": {
+      "256": {
+        "bge-base-en-v1.5": {
+          "hit_rate@1": 0.7576,
+          "hit_rate@3": 0.9091,
+          "hit_rate@5": 0.9394,
+          "hit_rate@10": 0.9899,
+          "ndcg@10": 0.8779,
+          "mrr@10": 0.8418,
+          "map@10": 0.8418
+        },
+        "bge-base-en-v1.5-hipaa": {
+          "hit_rate@1": 0.8182,
+          "hit_rate@3": 0.9697,
+          "hit_rate@5": 0.9798,
+          "hit_rate@10": 1.0,
+          "ndcg@10": 0.9181,
+          "mrr@10": 0.8908,
+          "map@10": 0.8908
+        },
+        "bge-large-en-v1.5": {
+          "hit_rate@1": 0.7677,
+          "hit_rate@3": 0.9394,
+          "hit_rate@5": 0.9798,
+          "hit_rate@10": 0.9899,
+          "ndcg@10": 0.8894,
+          "mrr@10": 0.8558,
+          "map@10": 0.8558
+        },
+        "snowflake-arctic-embed-m-v1.5": {
+          "hit_rate@1": 0.8182,
+          "hit_rate@3": 0.9293,
+          "hit_rate@5": 0.9495,
+          "hit_rate@10": 0.9798,
+          "ndcg@10": 0.9039,
+          "mrr@10": 0.8791,
+          "map@10": 0.8791
+        }
+      },
+      "512": {
+        "bge-base-en-v1.5": {
+          "hit_rate@1": 0.7576,
+          "hit_rate@3": 0.9192,
+          "hit_rate@5": 0.9495,
+          "hit_rate@10": 0.9899,
+          "ndcg@10": 0.8796,
+          "mrr@10": 0.8438,
+          "map@10": 0.8438
+        },
+        "bge-base-en-v1.5-hipaa": {
+          "hit_rate@1": 0.8283,
+          "hit_rate@3": 0.9697,
+          "hit_rate@5": 0.9899,
+          "hit_rate@10": 1.0,
+          "ndcg@10": 0.9256,
+          "mrr@10": 0.9004,
+          "map@10": 0.9004
+        },
+        "bge-large-en-v1.5": {
+          "hit_rate@1": 0.798,
+          "hit_rate@3": 0.9293,
+          "hit_rate@5": 0.9697,
+          "hit_rate@10": 0.9899,
+          "ndcg@10": 0.9023,
+          "mrr@10": 0.8732,
+          "map@10": 0.8732
+        },
+        "snowflake-arctic-embed-m-v1.5": {
+          "hit_rate@1": 0.8283,
+          "hit_rate@3": 0.9293,
+          "hit_rate@5": 0.9495,
+          "hit_rate@10": 0.9899,
+          "ndcg@10": 0.9092,
+          "mrr@10": 0.8836,
+          "map@10": 0.8836
+        }
+      }
+    }
   }
 }
