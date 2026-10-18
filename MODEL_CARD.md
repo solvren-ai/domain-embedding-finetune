@@ -40,7 +40,7 @@ model-index:
 
 `BAAI/bge-base-en-v1.5` fine-tuned for retrieval over US healthcare privacy and security regulation (HIPAA, 45 CFR Parts 160 and 164). It is meant as the retriever in RAG systems that answer compliance questions over regulatory text.
 
-This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook (Apple M5, 16 GB): local data generation, local training, no cloud services. The pipeline is [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/mac-local/local/run_local.py) on the `mac-local` branch of [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0).
+This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook (Apple M5, 16 GB): local data generation, local training, no cloud services. Code: [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0). The published weights were produced by [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/mac-local/local/run_local.py) on the `mac-local` branch. That script is now the single CLI [`run.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/feature/local-cloud-cli/run.py) (PR [#1](https://github.com/solvren-ai/domain-embedding-finetune/pull/1)), whose `--local` mode runs the same pipeline.
 
 ## Results
 
@@ -122,6 +122,18 @@ Dataset: [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/Solvr
 - Chunks are whole paragraphs packed up to about 220 words within one CFR section, each prefixed with the section heading.
 - Up to 3 synthetic questions per chunk were generated locally with [`mlx-community/Qwen3-4B-Instruct-2507-4bit`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit) (Apache-2.0) via `mlx-lm`, using the original notebook's prompt (temperature 0.7, top-p 0.8).
 - Train and validation come from different regulations.
+
+## Reproduce
+
+```bash
+git clone https://github.com/solvren-ai/domain-embedding-finetune.git && cd domain-embedding-finetune
+git checkout feature/local-cloud-cli   # until PR #1 is merged
+uv run run.py all --local              # corpus, generate (MLX Qwen3-4B), train (MPS), eval, beir
+uv run run.py all --role <SageMakerRoleArn>   # or on AWS: Bedrock Nova Lite + a SageMaker g5 job
+uv run run.py all --dry-run                   # preview the AWS requests without sending them
+```
+
+Outputs: `data/pairs_*.jsonl`, `models/bge-base-en-v1.5-hipaa/`, `results/metrics.json`, `results/beir_scifact.json`, `results/train_info.json`. The local data-generation step is sampled (temperature 0.7), so a rerun produces different questions and slightly different numbers.
 
 ## Training procedure
 

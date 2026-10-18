@@ -48,12 +48,12 @@ corpus = load_dataset("SolvrenAI/hipaa-retrieval-pairs", "corpus")
 
 ## How it was made
 
-1. Text was pulled from the [eCFR API](https://www.ecfr.gov/developers/documentation/api/v1) (title 45, snapshot 2026-10-06) as XML, one CFR section at a time.
+1. Text was pulled from the [eCFR API](https://www.ecfr.gov/developers/documentation/api/v1) (title 45, snapshot 2026-10-06) as XML, one part or subpart per request, then split into CFR sections (`§`). Each chunk's `source` field holds the exact request URL.
 2. Whole paragraphs were packed into chunks of up to about 220 words, each prefixed with its section heading. Chunks under 100 characters were dropped.
 3. Up to 3 questions per chunk were generated locally with [`mlx-community/Qwen3-4B-Instruct-2507-4bit`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit) (Apache-2.0), temperature 0.7, top-p 0.8. Only lines ending in `?` were kept.
 4. Nothing was manually reviewed or edited.
 
-Code: [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/mac-local/local/run_local.py) (`corpus` and `generate` steps).
+Code: [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune). This data was produced by [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/mac-local/local/run_local.py) on the `mac-local` branch. To regenerate it with the single CLI [`run.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/feature/local-cloud-cli/run.py) (PR [#1](https://github.com/solvren-ai/domain-embedding-finetune/pull/1)), run `uv run run.py corpus --local && uv run run.py generate --local`. The cloud variant, `uv run run.py generate`, uses Bedrock Nova Lite instead of Qwen3-4B. Generation is sampled, so the questions will differ between runs.
 
 ## License and privacy
 
