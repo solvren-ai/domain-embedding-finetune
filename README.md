@@ -7,8 +7,8 @@ This guide assumes you have already set up a SageMaker Studio environment as des
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/aws-samples/finetune-bge-embeddings-blog.git
-   cd finetune-bge-embeddings-blog
+   git clone https://github.com/solvren-ai/domain-embedding-finetune.git
+   cd domain-embedding-finetune
    ```
 
 2. Create the Conda environment:
@@ -34,7 +34,7 @@ This guide assumes you have already set up a SageMaker Studio environment as des
    ```
 
 5. Open the Jupyter notebook:
-   - From the SageMaker Studio Launcher, open the repository folder named `finetune-bge-embeddings-blog`.
+   - From the SageMaker Studio Launcher, open the repository folder named `domain-embedding-finetune`.
    - Open the file `finetune-bge-embeddings.ipynb`.
 
 6. Select the correct kernel:
@@ -82,7 +82,7 @@ uv run run.py train --role arn:aws:iam::<acct>:role/<SageMakerRole>
 uv run run.py all --role ...          # corpus, generate, train (eval and beir run inside the job)
 uv run run.py all --dry-run           # print the Bedrock and SageMaker requests
 
-# Publish (either mode): private Hugging Face repos in the SolvrenAI org
+# Publish (either mode) to the SolvrenAI Hugging Face org: creates missing repos as private, refuses to upload into a public repo
 uv run run.py publish --dry-run
 uv run run.py publish                 # reads HF_TOKEN from the env or --env-file (default ../.env)
 ```
@@ -99,15 +99,16 @@ Shared flags:
 In cloud mode, `eval` and `beir` don't run on their own: they run inside the SageMaker training job after training. The fine-tuned model and `results/` come back in the job's `model.tar.gz` on S3.
 
 Cloud prerequisites:
-- **Bedrock:** model access to Amazon Nova Lite (`amazon.nova-lite-v1:0`) enabled in the target region, plus `bedrock:InvokeModel` permission for your credentials.
+- **Bedrock:** model access to Amazon Nova Lite (`amazon.nova-lite-v1:0`) enabled in the target region, plus `bedrock:InvokeModel` permission for your credentials. Outside `us-east-1` you may need the cross-region inference profile: `generate --model us.amazon.nova-lite-v1:0`.
 - **SageMaker execution role:** trusted by `sagemaker.amazonaws.com`, with read/write access to the S3 bucket. It also needs CloudWatch Logs and ECR pull permissions, which `AmazonSageMakerFullAccess` covers. Your own credentials need `sagemaker:CreateTrainingJob`, `iam:PassRole` on that role, and S3 write access.
+- **S3 bucket:** `--bucket`, or the default `sagemaker-<region>-<account>` must already exist (the SageMaker Python SDK or Studio creates it on first use; `run.py` does not).
 - **GPU quota:** the "ml.g5.xlarge for training job usage" Service Quota must be at least 1 in the region (new accounts often start at 0).
 - **Network:** the job downloads the base and reference models from the Hugging Face Hub, so it needs internet access (the default, no VPC).
 
 Outputs:
 - `data/pairs_*.jsonl`: the synthetic dataset, one `{"query", "pos", "chunk_id", "split"}` per line (FlagEmbedding-compatible).
 - `results/metrics.json`, `results/beir_scifact.json`, `results/train_info.json`: the evaluation metrics and training run details. Headline: NDCG@10 over the full corpus goes from 0.834 (base) to 0.907 (fine-tuned); SciFact is unchanged (0.740 to 0.743). Full tables are in [`MODEL_CARD.md`](MODEL_CARD.md).
-- `models/bge-base-en-v1.5-hipaa/`: the fine-tuned weights (git-ignored). See [`MODEL_CARD.md`](MODEL_CARD.md) and [`DATASET_CARD.md`](DATASET_CARD.md). Published privately as [SolvrenAI/bge-base-en-v1.5-hipaa](https://huggingface.co/SolvrenAI/bge-base-en-v1.5-hipaa) and [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/SolvrenAI/hipaa-retrieval-pairs).
+- `models/bge-base-en-v1.5-hipaa/`: the fine-tuned weights (git-ignored). See [`MODEL_CARD.md`](MODEL_CARD.md) and [`DATASET_CARD.md`](DATASET_CARD.md). Published as [SolvrenAI/bge-base-en-v1.5-hipaa](https://huggingface.co/SolvrenAI/bge-base-en-v1.5-hipaa) and [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/SolvrenAI/hipaa-retrieval-pairs).
 
 Downloaded regulation XML goes in `data/raw/` (git-ignored). It is only parsed, never executed. The notebook's hard-negative mining, LM-Cocktail merging and SageMaker endpoint deployment are not ported.
 

@@ -2,3 +2,4 @@ models/
 data/raw/
 results/*.log
 __pycache__/
+.env

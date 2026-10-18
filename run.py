@@ -19,7 +19,7 @@ Steps (run in order, or `all`); add --local to run on this machine, omit it for 
             (the job runs this same file: train, then eval and beir, on a GPU)
   eval      base vs fine-tuned vs references on HIPAA val queries (full + val-only corpus, seq 256/512)
   beir      general-domain regression check on BEIR SciFact (NDCG@10)
-  publish   push model + dataset to the Hugging Face org SolvrenAI as private repos
+  publish   push model + dataset to the Hugging Face org SolvrenAI (new repos private; public ones refused)
   selftest  offline checks for parsing, chunking and mode dispatch
 
 Run from the repo root:  uv run run.py all --local   |   uv run run.py all --dry-run
@@ -153,6 +153,8 @@ def device():
 
 
 def step_corpus(a, mode):
+    if a.dry_run:  # also under `all --dry-run`: no download, no overwrite of data/corpus_*.jsonl
+        return print(f"[dry-run] fetch {[u for s in SOURCES.values() for _, u in s]} -> {DATA}/corpus_{{train,val}}.jsonl")
     for split, srcs in SOURCES.items():
         rows = []
         for name, url in srcs:
@@ -298,7 +300,6 @@ def submit_training_job(a):
         return
     import boto3
 
-    assert a.role, "--role (or SAGEMAKER_ROLE_ARN) is required for a real SageMaker job"
     if not a.bucket:
         bucket = f"sagemaker-{a.region}-{boto3.client('sts', region_name=a.region).get_caller_identity()['Account']}"
         prefix = f"s3://{bucket}/domain-embedding-finetune/{job}"
@@ -393,7 +394,7 @@ def step_beir(a, mode):
 
 
 def step_publish(a, mode):
-    """Push model + dataset to the HF org as PRIVATE repos. HF_TOKEN comes from the env or --env-file, never printed."""
+    """Push model + dataset to the HF org; creates them private, refuses to upload into a public repo. HF_TOKEN comes from the env or --env-file, never printed."""
     targets = [(HF_MODEL_REPO, "model", str(MODEL_OUT), "MODEL_CARD.md"), (HF_DATASET_REPO, "dataset", str(DATA), "DATASET_CARD.md")]
     if a.dry_run:
         for repo, kind, folder, card in targets:
@@ -406,8 +407,11 @@ def step_publish(a, mode):
     from huggingface_hub import HfApi
 
     api = HfApi()
-    for repo, kind, folder, card in targets:
+    for repo, kind, folder, card in targets:  # check both before uploading either
         api.create_repo(repo, repo_type=kind, private=True, exist_ok=True)
+        if not api.repo_info(repo, repo_type=kind).private:
+            raise SystemExit(f"refusing to publish: {kind} {repo} is public (upload to it by hand if intended)")
+    for repo, kind, folder, card in targets:
         if kind == "model":
             api.upload_folder(repo_id=repo, repo_type=kind, folder_path=folder, ignore_patterns=["checkpoints/*", "README.md"])
         else:
@@ -435,6 +439,11 @@ def step_selftest(a=None, mode=None):
     assert req["ResourceConfig"]["InstanceType"] == "ml.g5.xlarge" and "us-east-1" in req["AlgorithmSpecification"]["TrainingImage"]
     assert json.loads(req["HyperParameters"]["in-job"]) == JOB_STEPS and json.loads(req["HyperParameters"]["model"]) == a.model
     assert converse_request(BEDROCK_LLM, "x")["modelId"] == "amazon.nova-lite-v1:0"
+    try:
+        parse_args(["train", "--local", "--dry-run"])
+        raise AssertionError("--local --dry-run must be rejected")
+    except SystemExit:
+        pass
     print("selftest ok")
 
 
@@ -456,7 +465,10 @@ def parse_args(argv=None):
     p.add_argument("--max-chunks", type=int, help="generate: only the first N chunks per split (smoke runs)")
     p.add_argument("--max-steps", type=int, default=-1, help="train: stop after N steps (smoke runs)")
     p.add_argument("--in-job", help=argparse.SUPPRESS)  # set by the SageMaker job: comma-separated steps
-    return p.parse_args(argv)
+    a = p.parse_args(argv)
+    if a.local and a.dry_run and a.step != "publish":
+        p.error("--dry-run only applies to cloud steps and publish; local steps would run for real")
+    return a
 
 
 def plan(a):
@@ -471,6 +483,8 @@ def plan(a):
 
 if __name__ == "__main__":
     args = parse_args()
+    if ("train", "cloud") in plan(args) and not (args.dry_run or args.role):  # fail before corpus/generate spend anything
+        raise SystemExit("--role (or SAGEMAKER_ROLE_ARN) is required for a real SageMaker job")
     if args.in_job:  # SageMaker: inputs from the data channel, everything saved under the model dir
         DATA, MODEL_OUT = Path(os.environ["SM_CHANNEL_DATA"]), Path(os.environ["SM_MODEL_DIR"])
         RESULTS = MODEL_OUT / "results"

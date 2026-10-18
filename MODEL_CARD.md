@@ -115,8 +115,8 @@ Dataset: [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/Solvr
 
 | Split | Source (eCFR, snapshot 2026-10-06) | Chunks | Query-passage pairs |
 |---|---|---|---|
-| train | [45 CFR Part 160](https://www.ecfr.gov/api/versioner/v1/full/2026-10-06/title-45.xml?part=160) (HIPAA general administrative requirements) + [45 CFR Part 164 Subpart E](https://www.ecfr.gov/api/versioner/v1/full/2026-10-06/title-45.xml?part=164&subpart=E) (Privacy Rule) | 271 | 813 |
-| validation | [45 CFR Part 164 Subpart C](https://www.ecfr.gov/api/versioner/v1/full/2026-10-06/title-45.xml?part=164&subpart=C) (Security Rule) + [Subpart D](https://www.ecfr.gov/api/versioner/v1/full/2026-10-06/title-45.xml?part=164&subpart=D) (Breach Notification Rule) | 33 | 99 |
+| train | [45 CFR Part 160](https://www.ecfr.gov/on/2026-10-06/title-45/part-160) (HIPAA general administrative requirements) + [45 CFR Part 164 Subpart E](https://www.ecfr.gov/on/2026-10-06/title-45/part-164/subpart-E) (Privacy Rule) | 271 | 813 |
+| validation | [45 CFR Part 164 Subpart C](https://www.ecfr.gov/on/2026-10-06/title-45/part-164/subpart-C) (Security Rule) + [Subpart D](https://www.ecfr.gov/on/2026-10-06/title-45/part-164/subpart-D) (Breach Notification Rule) | 33 | 99 |
 
 - The regulation text is a US federal government work (public domain).
 - Chunks are whole paragraphs packed up to about 220 words within one CFR section, each prefixed with the section heading.
