@@ -150,3 +150,20 @@ Outputs: `data/pairs_*.jsonl`, `models/bge-base-en-v1.5-hipaa/`, `results/metric
 - This model was trained on the 271 train chunks that serve as distractors in the full-corpus eval (it never saw the val chunks or val queries). The reference models were not.
 - Coverage is HIPAA only. The model hasn't been tested on other healthcare regulation (e.g. 42 CFR Part 2, state privacy law). The general-domain check covers one BEIR task. Evaluate on your own corpus before use.
 - Retrieval output isn't legal advice. The eCFR is an authoritative but unofficial editorial compilation of the CFR.
+
+## Citation
+
+If you use this model in your work, please cite:
+
+```bibtex
+@misc{solvren2026bgehipaa,
+  title        = {bge-base-en-v1.5-hipaa: Domain-Tuned Embeddings for HIPAA Retrieval},
+  author       = {{Solvren AI}},
+  year         = {2026},
+  publisher    = {Hugging Face},
+  howpublished = {\url{https://huggingface.co/SolvrenAI/bge-base-en-v1.5-hipaa}},
+  note         = {Code: https://github.com/solvren-ai/domain-embedding-finetune}
+}
+```
+
+Built on BAAI/bge-base-en-v1.5 (MIT) and adapted from aws-samples/finetune-bge-embeddings-blog (MIT-0).

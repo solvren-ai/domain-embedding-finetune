@@ -65,3 +65,20 @@ Code: [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domai
 - The dataset is small, and each question has exactly one labelled relevant chunk. Another chunk may also answer a question but isn't marked relevant.
 - The questions are LLM-generated from the chunk they target, so they share its vocabulary, and some may be awkward or slightly off. They read more cleanly than real user queries.
 - The eCFR is an authoritative but unofficial compilation. For legal use, refer to the official CFR. Nothing here is legal advice.
+
+## Citation
+
+If you use this dataset in your work, please cite:
+
+```bibtex
+@misc{solvren2026hipaapairs,
+  title        = {HIPAA Retrieval Pairs: Synthetic Query-Passage Pairs over 45 CFR Parts 160 and 164},
+  author       = {{Solvren AI}},
+  year         = {2026},
+  publisher    = {Hugging Face},
+  howpublished = {\url{https://huggingface.co/datasets/SolvrenAI/hipaa-retrieval-pairs}},
+  note         = {Code: https://github.com/solvren-ai/domain-embedding-finetune}
+}
+```
+
+Source text: US eCFR, public domain. Adapted from aws-samples/finetune-bge-embeddings-blog (MIT-0).
