@@ -46,37 +46,70 @@ This guide assumes you have already set up a SageMaker Studio environment as des
 
 Note: Make sure you have the necessary permissions and quotas set up in your AWS account to use Amazon Bedrock and SageMaker services as described in the blog post.
 
-## Run locally on Mac
+## Run locally on Mac or on AWS
 
-A no-AWS port of the notebook lives in [`local/run_local.py`](local/run_local.py) (the notebook is unchanged). It runs fully on Apple Silicon:
+One entry point, [`run.py`](run.py), covers both modes (the notebook is unchanged). `--local` runs everything on Apple Silicon; without it, the steps run on AWS:
 
-| Notebook (AWS) | Local port |
-|---|---|
-| Uber / Lyft 10-K PDFs | HIPAA regulation text from eCFR (snapshot 2026-10-06). Train: 45 CFR Part 160 + Part 164 Subpart E (Privacy Rule). Val: Part 164 Subparts C (Security Rule) + D (Breach Notification). |
-| Bedrock `meta.llama3-70b-instruct-v1:0` | `mlx-community/Qwen3-4B-Instruct-2507-4bit` via `mlx-lm` (Apache-2.0) |
-| FlagEmbedding + torchrun on CUDA | sentence-transformers `MultipleNegativesRankingLoss` on MPS |
-| Hit rate + `InformationRetrievalEvaluator`; Titan reference | `InformationRetrievalEvaluator` (accuracy@k = hit rate@k, NDCG@10, MRR@10) over the full 304-chunk corpus and the 33 val chunks, at seq len 256 and 512; references: `bge-large-en-v1.5`, `snowflake-arctic-embed-m-v1.5`; general-domain check on BEIR SciFact |
+| Notebook (AWS) | `--local` | Cloud (default) |
+|---|---|---|
+| Uber / Lyft 10-K PDFs | HIPAA regulation text from eCFR (snapshot 2026-10-06). Train: 45 CFR Part 160 + Part 164 Subpart E (Privacy Rule). Val: Part 164 Subparts C (Security Rule) + D (Breach Notification). | same |
+| Bedrock `meta.llama3-70b-instruct-v1:0` | `mlx-community/Qwen3-4B-Instruct-2507-4bit` via `mlx-lm` (Apache-2.0) | Bedrock `amazon.nova-lite-v1:0` via the Converse API, same prompt |
+| FlagEmbedding + torchrun on CUDA | sentence-transformers `MultipleNegativesRankingLoss` on MPS | the same training function in a SageMaker training job (Hugging Face PyTorch DLC, `ml.g5.xlarge`) |
+| Hit rate + `InformationRetrievalEvaluator`; Titan reference | `InformationRetrievalEvaluator` (accuracy@k = hit rate@k, NDCG@10, MRR@10) over the full 304-chunk corpus and the 33 val chunks, at seq len 256 and 512; references: `bge-large-en-v1.5`, `snowflake-arctic-embed-m-v1.5`; general-domain check on BEIR SciFact | the same, run inside the training job after training |
 
-Requirements: an Apple Silicon Mac with 16 GB+ RAM, [uv](https://docs.astral.sh/uv/), and about 5 GB of disk for the models. Dependencies are declared inline in the script (PEP 723) and pinned in `local/run_local.py.lock`.
+Requirements: [uv](https://docs.astral.sh/uv/). For `--local`: an Apple Silicon Mac with 16 GB+ RAM and about 5 GB of disk for the models. Dependencies are declared inline in the script (PEP 723) and pinned in `run.py.lock`.
+
+### Commands
 
 ```bash
-git clone -b mac-local https://github.com/solvren-ai/finetune-bge-embeddings-blog.git
-cd finetune-bge-embeddings-blog
-uv run local/run_local.py selftest   # offline parser/chunker checks
-uv run local/run_local.py corpus     # download eCFR XML to data/raw/, write data/corpus_{train,val}.jsonl
-uv run local/run_local.py generate   # write data/pairs_{train,val}.jsonl (~15 min, resumable)
-uv run local/run_local.py train      # fine-tune on MPS, save to models/bge-base-en-v1.5-hipaa/
-uv run local/run_local.py eval       # base vs fine-tuned vs references, write results/metrics.json
-uv run local/run_local.py beir       # BEIR SciFact regression check, write results/beir_scifact.json
-# or all five steps in one go: uv run local/run_local.py all
+git clone https://github.com/solvren-ai/domain-embedding-finetune.git
+cd domain-embedding-finetune
+uv run run.py selftest                # offline checks: parser, chunker, mode dispatch
+
+# Local (Apple Silicon)
+uv run run.py corpus --local          # download eCFR XML to data/raw/, write data/corpus_{train,val}.jsonl
+uv run run.py generate --local        # MLX Qwen3-4B -> data/pairs_{train,val}.jsonl (~15-25 min, resumable)
+uv run run.py train --local           # fine-tune on MPS -> models/bge-base-en-v1.5-hipaa/
+uv run run.py eval --local            # all models x both corpora x seq 256/512 -> results/metrics.json
+uv run run.py beir --local            # BEIR SciFact check -> results/beir_scifact.json
+uv run run.py all --local             # the five steps above
+
+# Cloud (AWS); add --dry-run to any of these to print the requests and send nothing
+uv run run.py corpus                  # same as local
+uv run run.py generate                # Bedrock Nova Lite (Converse) -> data/pairs_*.jsonl
+uv run run.py train --role arn:aws:iam::<acct>:role/<SageMakerRole>
+                                      # upload code + data to S3, start a SageMaker job that runs train, eval and beir
+uv run run.py all --role ...          # corpus, generate, train (eval and beir run inside the job)
+uv run run.py all --dry-run           # print the Bedrock and SageMaker requests
+
+# Publish (either mode): private Hugging Face repos in the SolvrenAI org
+uv run run.py publish --dry-run
+uv run run.py publish                 # reads HF_TOKEN from the env or --env-file (default ../.env)
 ```
+
+Shared flags:
+- `--local`: run on this machine.
+- `--dry-run`: cloud steps and publish only; prints the requests and sends nothing.
+- `--model`: the LLM for `generate`, or the base embedding model for `train` and `all`.
+- `--region`: defaults to `us-east-1`.
+- `--instance-type`: defaults to `ml.g5.xlarge`.
+- Also `--role` (or the `SAGEMAKER_ROLE_ARN` environment variable) and `--bucket` (default `sagemaker-<region>-<account>`).
+- Smoke-run flags: `--max-chunks N` (generate) and `--max-steps N` (train).
+
+In cloud mode, `eval` and `beir` don't run on their own: they run inside the SageMaker training job after training. The fine-tuned model and `results/` come back in the job's `model.tar.gz` on S3.
+
+Cloud prerequisites:
+- **Bedrock:** model access to Amazon Nova Lite (`amazon.nova-lite-v1:0`) enabled in the target region, plus `bedrock:InvokeModel` permission for your credentials.
+- **SageMaker execution role:** trusted by `sagemaker.amazonaws.com`, with read/write access to the S3 bucket. It also needs CloudWatch Logs and ECR pull permissions, which `AmazonSageMakerFullAccess` covers. Your own credentials need `sagemaker:CreateTrainingJob`, `iam:PassRole` on that role, and S3 write access.
+- **GPU quota:** the "ml.g5.xlarge for training job usage" Service Quota must be at least 1 in the region (new accounts often start at 0).
+- **Network:** the job downloads the base and reference models from the Hugging Face Hub, so it needs internet access (the default, no VPC).
 
 Outputs:
 - `data/pairs_*.jsonl`: the synthetic dataset, one `{"query", "pos", "chunk_id", "split"}` per line (FlagEmbedding-compatible).
 - `results/metrics.json`, `results/beir_scifact.json`, `results/train_info.json`: the evaluation metrics and training run details. Headline: NDCG@10 over the full corpus goes from 0.834 (base) to 0.907 (fine-tuned); SciFact is unchanged (0.740 to 0.743). Full tables are in [`MODEL_CARD.md`](MODEL_CARD.md).
 - `models/bge-base-en-v1.5-hipaa/`: the fine-tuned weights (git-ignored). See [`MODEL_CARD.md`](MODEL_CARD.md) and [`DATASET_CARD.md`](DATASET_CARD.md). Published privately as [SolvrenAI/bge-base-en-v1.5-hipaa](https://huggingface.co/SolvrenAI/bge-base-en-v1.5-hipaa) and [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/SolvrenAI/hipaa-retrieval-pairs).
 
-Downloaded regulation XML goes in `data/raw/` (git-ignored). It is only parsed, never executed. The notebook's hard-negative mining, LM-Cocktail merging and SageMaker deployment are not ported.
+Downloaded regulation XML goes in `data/raw/` (git-ignored). It is only parsed, never executed. The notebook's hard-negative mining, LM-Cocktail merging and SageMaker endpoint deployment are not ported.
 
 ## Security
 

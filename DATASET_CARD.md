@@ -53,7 +53,7 @@ corpus = load_dataset("SolvrenAI/hipaa-retrieval-pairs", "corpus")
 3. Up to 3 questions per chunk were generated locally with [`mlx-community/Qwen3-4B-Instruct-2507-4bit`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit) (Apache-2.0), temperature 0.7, top-p 0.8. Only lines ending in `?` were kept.
 4. Nothing was manually reviewed or edited.
 
-Code: [`local/run_local.py`](https://github.com/solvren-ai/finetune-bge-embeddings-blog/blob/mac-local/local/run_local.py) (`corpus` and `generate` steps).
+Code: [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/mac-local/local/run_local.py) (`corpus` and `generate` steps).
 
 ## License and privacy
 

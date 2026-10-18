@@ -40,7 +40,7 @@ model-index:
 
 `BAAI/bge-base-en-v1.5` fine-tuned for retrieval over US healthcare privacy and security regulation (HIPAA, 45 CFR Parts 160 and 164). It is meant as the retriever in RAG systems that answer compliance questions over regulatory text.
 
-This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook (Apple M5, 16 GB): local data generation, local training, no cloud services. The pipeline is [`local/run_local.py`](https://github.com/solvren-ai/finetune-bge-embeddings-blog/blob/mac-local/local/run_local.py) on the `mac-local` branch of [solvren-ai/finetune-bge-embeddings-blog](https://github.com/solvren-ai/finetune-bge-embeddings-blog), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0).
+This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook (Apple M5, 16 GB): local data generation, local training, no cloud services. The pipeline is [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/mac-local/local/run_local.py) on the `mac-local` branch of [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0).
 
 ## Results
 
