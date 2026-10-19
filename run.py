@@ -19,7 +19,7 @@ Steps (run in order, or `all`); add --local to run on this machine, omit it for 
             (the job runs this same file: train, then eval and beir, on a GPU)
   eval      base vs fine-tuned vs references on HIPAA val queries (full + val-only corpus, seq 256/512)
   beir      general-domain regression check on BEIR SciFact (NDCG@10)
-  publish   push model + dataset to the Hugging Face org SolvrenAI (new repos private; public ones refused)
+  publish   push model + dataset to the Hugging Face org SolvrenAI (missing repos created private; existing ones updated)
   selftest  offline checks for parsing, chunking and mode dispatch
 
 Run from the repo root:  uv run run.py all --local   |   uv run run.py all --dry-run
@@ -400,12 +400,21 @@ def step_beir(a, mode):
     (RESULTS / "beir_scifact.json").write_text(json.dumps(out, indent=2))
 
 
+def ensure_repo(api, repo, kind):
+    """Never CREATE a public repo; an existing repo (public or private) is updated as is."""
+    if api.repo_exists(repo, repo_type=kind):
+        return
+    api.create_repo(repo, repo_type=kind, private=True)
+    if not api.repo_info(repo, repo_type=kind).private:
+        raise SystemExit(f"refusing to publish: newly created {kind} {repo} is not private")
+
+
 def step_publish(a, mode):
-    """Push model + dataset to the HF org; creates them private, refuses to upload into a public repo. HF_TOKEN comes from the env or --env-file, never printed."""
+    """Push model + dataset to the HF org; never creates a public repo (missing ones are created private); existing repos, public or private, are updated. HF_TOKEN comes from the env or --env-file, never printed."""
     targets = [(HF_MODEL_REPO, "model", str(MODEL_OUT), "MODEL_CARD.md"), (HF_DATASET_REPO, "dataset", str(DATA), "DATASET_CARD.md")]
     if a.dry_run:
         for repo, kind, folder, card in targets:
-            print(f"[dry-run] create private {kind} {repo} <- {folder}/ + {card} as README.md")
+            print(f"[dry-run] create-if-missing (private) {kind} {repo} <- {folder}/ + {card} as README.md")
         return
     if "HF_TOKEN" not in os.environ and Path(a.env_file).exists():
         for line in Path(a.env_file).read_text().splitlines():
@@ -415,9 +424,7 @@ def step_publish(a, mode):
 
     api = HfApi()
     for repo, kind, folder, card in targets:  # check both before uploading either
-        api.create_repo(repo, repo_type=kind, private=True, exist_ok=True)
-        if not api.repo_info(repo, repo_type=kind).private:
-            raise SystemExit(f"refusing to publish: {kind} {repo} is public (upload to it by hand if intended)")
+        ensure_repo(api, repo, kind)
     for repo, kind, folder, card in targets:
         if kind == "model":
             api.upload_folder(repo_id=repo, repo_type=kind, folder_path=folder, ignore_patterns=["checkpoints/*", "README.md"])
@@ -449,6 +456,19 @@ def step_selftest(a=None, mode=None):
     try:
         parse_args(["train", "--local", "--dry-run"])
         raise AssertionError("--local --dry-run must be rejected")
+    except SystemExit:
+        pass
+    from types import SimpleNamespace as NS
+    made = []
+    fake = lambda exists, private: NS(repo_exists=lambda r, repo_type: exists, create_repo=lambda r, repo_type, private: made.append(private),
+                                      repo_info=lambda r, repo_type: NS(private=private))
+    ensure_repo(fake(True, False), "o/r", "model")  # existing public repo: allowed, nothing created
+    assert made == []
+    ensure_repo(fake(False, True), "o/r", "model")  # missing repo: created private
+    assert made == [True]
+    try:
+        ensure_repo(fake(False, False), "o/r", "model")
+        raise AssertionError("a newly created public repo must be refused")
     except SystemExit:
         pass
     print("selftest ok")

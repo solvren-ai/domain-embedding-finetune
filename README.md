@@ -82,7 +82,7 @@ uv run run.py train --role arn:aws:iam::<acct>:role/<SageMakerRole>
 uv run run.py all --role ...          # corpus, generate, train (eval and beir run inside the job)
 uv run run.py all --dry-run           # print the Bedrock and SageMaker requests
 
-# Publish (either mode) to the SolvrenAI Hugging Face org: creates missing repos as private, refuses to upload into a public repo
+# Publish (either mode) to the SolvrenAI Hugging Face org: creates missing repos as private (never public), updates existing ones, public or private
 uv run run.py publish --dry-run
 uv run run.py publish                 # HF_TOKEN (write access to SolvrenAI) from the env or --env-file (default ../.env)
 ```
