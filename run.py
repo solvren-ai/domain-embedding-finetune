@@ -196,19 +196,26 @@ def bedrock_completer(model_id, region):
     return lambda text: client.converse(**converse_request(model_id, text))["output"]["message"]["content"][0]["text"]
 
 
+def pending(split, max_chunks=None):
+    """Resumable: chunks that already have pairs in pairs_{split}.jsonl are skipped (delete it to regenerate)."""
+    out = DATA / f"pairs_{split}.jsonl"
+    done = {r["chunk_id"] for r in read_jsonl(out)} if out.exists() else set()
+    if done:
+        print(f"{split}: skipping {len(done)} chunks already in {out} (delete it to regenerate)")
+    return out, [c for c in read_jsonl(DATA / f"corpus_{split}.jsonl")[:max_chunks] if c["id"] not in done]
+
+
 def step_generate(a, mode):
     model_id = (a.model if a.step == "generate" else None) or (LLM if mode == "local" else BEDROCK_LLM)  # `all --model` = embedding model
     if mode == "cloud" and a.dry_run:
-        n = sum(len(read_jsonl(DATA / f"corpus_{s}.jsonl")[: a.max_chunks]) for s in ("train", "val"))
+        n = sum(len(pending(s, a.max_chunks)[1]) for s in ("train", "val"))
         c = read_jsonl(DATA / "corpus_train.jsonl")[0]
-        print(f"[dry-run] bedrock-runtime.converse ({a.region}) x {n} chunks; first request:")
+        print(f"[dry-run] bedrock-runtime.converse ({a.region}) x {n} pending chunks; first request:")
         print(json.dumps(converse_request(model_id, QA_PROMPT.format(num=NUM_QUESTIONS, context=c["text"])), indent=2))
         return
     complete = mlx_completer(model_id) if mode == "local" else bedrock_completer(model_id, a.region)
     for split in ("train", "val"):
-        out = DATA / f"pairs_{split}.jsonl"
-        done = {r["chunk_id"] for r in read_jsonl(out)} if out.exists() else set()  # resumable
-        corpus = [c for c in read_jsonl(DATA / f"corpus_{split}.jsonl")[: a.max_chunks] if c["id"] not in done]
+        out, corpus = pending(split, a.max_chunks)
         t0 = time.time()
         with out.open("a") as f:
             for i, c in enumerate(corpus):
@@ -485,6 +492,8 @@ if __name__ == "__main__":
     args = parse_args()
     if ("train", "cloud") in plan(args) and not (args.dry_run or args.role):  # fail before corpus/generate spend anything
         raise SystemExit("--role (or SAGEMAKER_ROLE_ARN) is required for a real SageMaker job")
+    if ("train", "local") in plan(args) and (MODEL_OUT / "model.safetensors").exists():  # don't clobber published weights
+        raise SystemExit(f"{MODEL_OUT} already holds trained weights; move it aside or run from a scratch copy")
     if args.in_job:  # SageMaker: inputs from the data channel, everything saved under the model dir
         DATA, MODEL_OUT = Path(os.environ["SM_CHANNEL_DATA"]), Path(os.environ["SM_MODEL_DIR"])
         RESULTS = MODEL_OUT / "results"

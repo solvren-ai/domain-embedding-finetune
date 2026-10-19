@@ -68,8 +68,8 @@ uv run run.py selftest                # offline checks: parser, chunker, mode di
 
 # Local (Apple Silicon)
 uv run run.py corpus --local          # download eCFR XML to data/raw/, write data/corpus_{train,val}.jsonl
-uv run run.py generate --local        # MLX Qwen3-4B -> data/pairs_{train,val}.jsonl (~15-25 min, resumable)
-uv run run.py train --local           # fine-tune on MPS -> models/bge-base-en-v1.5-hipaa/
+uv run run.py generate --local        # MLX Qwen3-4B -> data/pairs_{train,val}.jsonl (~28 min on an M5, resumable)
+uv run run.py train --local           # fine-tune on MPS -> models/bge-base-en-v1.5-hipaa/ (refuses to overwrite trained weights)
 uv run run.py eval --local            # all models x both corpora x seq 256/512 -> results/metrics.json
 uv run run.py beir --local            # BEIR SciFact check -> results/beir_scifact.json
 uv run run.py all --local             # the five steps above
@@ -84,7 +84,7 @@ uv run run.py all --dry-run           # print the Bedrock and SageMaker requests
 
 # Publish (either mode) to the SolvrenAI Hugging Face org: creates missing repos as private, refuses to upload into a public repo
 uv run run.py publish --dry-run
-uv run run.py publish                 # reads HF_TOKEN from the env or --env-file (default ../.env)
+uv run run.py publish                 # HF_TOKEN (write access to SolvrenAI) from the env or --env-file (default ../.env)
 ```
 
 Shared flags:
@@ -96,9 +96,12 @@ Shared flags:
 - Also `--role` (or the `SAGEMAKER_ROLE_ARN` environment variable) and `--bucket` (default `sagemaker-<region>-<account>`).
 - Smoke-run flags: `--max-chunks N` (generate) and `--max-steps N` (train).
 
+`generate` is resumable: it skips chunks that already have pairs. The committed `data/pairs_*.jsonl` cover every chunk, so delete them first to generate new pairs (locally or with Bedrock); otherwise `generate` and `all` reuse the published pairs.
+
 In cloud mode, `eval` and `beir` don't run on their own: they run inside the SageMaker training job after training. The fine-tuned model and `results/` come back in the job's `model.tar.gz` on S3.
 
 Cloud prerequisites:
+- **AWS credentials** that boto3 can find (`aws configure`, `AWS_PROFILE` or environment variables). `--dry-run` needs none.
 - **Bedrock:** model access to Amazon Nova Lite (`amazon.nova-lite-v1:0`) enabled in the target region, plus `bedrock:InvokeModel` permission for your credentials. Outside `us-east-1` you may need the cross-region inference profile: `generate --model us.amazon.nova-lite-v1:0`.
 - **SageMaker execution role:** trusted by `sagemaker.amazonaws.com`, with read/write access to the S3 bucket. It also needs CloudWatch Logs and ECR pull permissions, which `AmazonSageMakerFullAccess` covers. Your own credentials need `sagemaker:CreateTrainingJob`, `iam:PassRole` on that role, and S3 write access.
 - **S3 bucket:** `--bucket`, or the default `sagemaker-<region>-<account>` must already exist (the SageMaker Python SDK or Studio creates it on first use; `run.py` does not).

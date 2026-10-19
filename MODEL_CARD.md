@@ -40,7 +40,7 @@ model-index:
 
 `BAAI/bge-base-en-v1.5` fine-tuned for retrieval over US healthcare privacy and security regulation (HIPAA, 45 CFR Parts 160 and 164). It is meant as the retriever in RAG systems that answer compliance questions over regulatory text.
 
-This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook (Apple M5, 16 GB): local data generation, local training, no cloud services. Code: [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0). The published weights were produced by [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/4f10e35938f9caff12000974d6e8361fac16e0ae/local/run_local.py) on the `mac-local` branch. That script is now the single CLI [`run.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/aec5d3861932a66ebd85891f1dcd8a5bdecff9dd/run.py) (PR [#1](https://github.com/solvren-ai/domain-embedding-finetune/pull/1)), whose `--local` mode runs the same pipeline.
+This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook Pro (Apple M5, 16 GB): local data generation, local training, no cloud services. Code: [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0). The published weights were produced by [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/4f10e35938f9caff12000974d6e8361fac16e0ae/local/run_local.py) on the `mac-local` branch. That script is now the single CLI [`run.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/aec5d3861932a66ebd85891f1dcd8a5bdecff9dd/run.py) (PR [#1](https://github.com/solvren-ai/domain-embedding-finetune/pull/1)), whose `--local` mode runs the same pipeline.
 
 ## Results
 
@@ -131,13 +131,14 @@ Dataset: [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/Solvr
 
 ```bash
 git clone https://github.com/solvren-ai/domain-embedding-finetune.git && cd domain-embedding-finetune
-git checkout aec5d3861932a66ebd85891f1dcd8a5bdecff9dd   # the commit these cards were published from
+git checkout aec5d3861932a66ebd85891f1dcd8a5bdecff9dd   # the run.py version these cards describe
+rm data/pairs_*.jsonl                  # optional: generate resumes, so without this it reuses the published pairs
 uv run run.py all --local              # corpus, generate (MLX Qwen3-4B), train (MPS), eval, beir
 uv run run.py all --role <SageMakerRoleArn>   # or on AWS: Bedrock Nova Lite + a SageMaker g5 job
 uv run run.py all --dry-run                   # preview the AWS requests without sending them
 ```
 
-Outputs: `data/pairs_*.jsonl`, `models/bge-base-en-v1.5-hipaa/`, `results/metrics.json`, `results/beir_scifact.json`, `results/train_info.json`. The local data-generation step is sampled (temperature 0.7), so a rerun produces different questions and slightly different numbers.
+Outputs: `data/pairs_*.jsonl`, `models/bge-base-en-v1.5-hipaa/`, `results/metrics.json`, `results/beir_scifact.json`, `results/train_info.json`. Generation is sampled (temperature 0.7), so regenerated pairs give different questions and slightly different numbers.
 
 ## Training procedure
 
