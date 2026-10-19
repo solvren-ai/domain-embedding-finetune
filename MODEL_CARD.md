@@ -40,7 +40,7 @@ model-index:
 
 `BAAI/bge-base-en-v1.5` fine-tuned for retrieval over US healthcare privacy and security regulation (HIPAA, 45 CFR Parts 160 and 164). It is meant as the retriever in RAG systems that answer compliance questions over regulatory text.
 
-This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook (Apple M5, 16 GB): local data generation, local training, no cloud services. Code: [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0). The published weights were produced by [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/mac-local/local/run_local.py) on the `mac-local` branch. That script is now the single CLI [`run.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/feature/local-cloud-cli/run.py) (PR [#1](https://github.com/solvren-ai/domain-embedding-finetune/pull/1)), whose `--local` mode runs the same pipeline.
+This is a showcase from Solvren AI (AI forward deployment for regulated industries). It was trained end to end on a MacBook (Apple M5, 16 GB): local data generation, local training, no cloud services. Code: [solvren-ai/domain-embedding-finetune](https://github.com/solvren-ai/domain-embedding-finetune), adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0). The published weights were produced by [`local/run_local.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/4f10e35938f9caff12000974d6e8361fac16e0ae/local/run_local.py) on the `mac-local` branch. That script is now the single CLI [`run.py`](https://github.com/solvren-ai/domain-embedding-finetune/blob/aec5d3861932a66ebd85891f1dcd8a5bdecff9dd/run.py) (PR [#1](https://github.com/solvren-ai/domain-embedding-finetune/pull/1)), whose `--local` mode runs the same pipeline.
 
 ## Results
 
@@ -82,9 +82,13 @@ The headline eval uses all 99 held-out queries, each with one relevant chunk. Th
 
 SciFact shows no meaningful regression; the deltas are within noise. This is one small task, not a full MTEB run.
 
-The reference models were not fine-tuned. Both use the BGE query instruction their model cards recommend. Licenses: bge-large-en-v1.5 is MIT, snowflake-arctic-embed-m-v1.5 is Apache-2.0. Raw numbers are in `results/metrics.json` and `results/beir_scifact.json` in the GitHub repo.
+The reference models were not fine-tuned. Both use the BGE query instruction their model cards recommend. Licenses: bge-large-en-v1.5 is MIT, snowflake-arctic-embed-m-v1.5 is Apache-2.0. Raw numbers are in `results/metrics.json` and `results/beir_scifact.json` in the [GitHub repo](https://github.com/solvren-ai/domain-embedding-finetune/tree/aec5d3861932a66ebd85891f1dcd8a5bdecff9dd/results).
 
 ## Usage
+
+```bash
+pip install "sentence-transformers>=6.1"
+```
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -105,7 +109,7 @@ print(model.similarity(q, p))  # the first passage scores higher
 
 Prefix queries with the BGE instruction `Represent this sentence for searching relevant passages: ` (the model was trained with it). Don't prefix passages.
 
-- The weights were saved with sentence-transformers 6.1, so loading them with sentence-transformers needs version 6.1 or later.
+- Loading needs sentence-transformers 6.0 or later (saved with 6.1.0; 5.x cannot load this module layout).
 - The default `max_seq_length` is 512, which matches the headline results. Training used 256.
 - With plain `transformers` (`AutoModel`), use CLS pooling followed by L2 normalization, as for the base BGE model.
 
@@ -127,7 +131,7 @@ Dataset: [SolvrenAI/hipaa-retrieval-pairs](https://huggingface.co/datasets/Solvr
 
 ```bash
 git clone https://github.com/solvren-ai/domain-embedding-finetune.git && cd domain-embedding-finetune
-git checkout feature/local-cloud-cli   # until PR #1 is merged
+git checkout aec5d3861932a66ebd85891f1dcd8a5bdecff9dd   # the commit these cards were published from
 uv run run.py all --local              # corpus, generate (MLX Qwen3-4B), train (MPS), eval, beir
 uv run run.py all --role <SageMakerRoleArn>   # or on AWS: Bedrock Nova Lite + a SageMaker g5 job
 uv run run.py all --dry-run                   # preview the AWS requests without sending them
@@ -166,4 +170,21 @@ If you use this model in your work, please cite:
 }
 ```
 
-Built on BAAI/bge-base-en-v1.5 (MIT) and adapted from aws-samples/finetune-bge-embeddings-blog (MIT-0).
+Please also cite the base model:
+
+```bibtex
+@misc{bge_embedding,
+  title         = {C-Pack: Packaged Resources To Advance General Chinese Embedding},
+  author        = {Shitao Xiao and Zheng Liu and Peitian Zhang and Niklas Muennighoff},
+  year          = {2023},
+  eprint        = {2309.07597},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL}
+}
+```
+
+Credits:
+- Base model: [BAAI/bge-base-en-v1.5](https://huggingface.co/BAAI/bge-base-en-v1.5) (MIT).
+- Query generation: [mlx-community/Qwen3-4B-Instruct-2507-4bit](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit) (Apache-2.0).
+- Evaluation only: SciFact (Wadden et al., 2020, "Fact or Fiction: Verifying Scientific Claims"; CC BY-NC 2.0), via [mteb/scifact](https://huggingface.co/datasets/mteb/scifact).
+- Code adapted from [aws-samples/finetune-bge-embeddings-blog](https://github.com/aws-samples/finetune-bge-embeddings-blog) (MIT-0).
